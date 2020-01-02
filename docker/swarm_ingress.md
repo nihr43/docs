@@ -166,29 +166,3 @@ root@0e54-ws:~/cfg/roles/swarm_ingress # tree
 
 3 directories, 4 files
 ```
-
-keepalived handles failover of virtual IP addresses.  We can reboot or remove haproxy nodes at will:
-
-```
-ssh root@10.0.0.39
-ip ad
-ssh root@9077-vmm
-vm poweroff
-```
-
-### Takeaways
-
- - everything is disposable.  The applications exist independently from the infrastructure.
- - haproxy.cfg is an important piece of the infractructure.  Testing, peer review, linting, and config management are essential for this component.
- - frequent updates advised for smooth operation.
- - granular control over resources, safe service consolidation, lower operating costs
- - smoother application deployment enables faster iteration, better user experience, more time to spend on providing value.
-
-### Bonus for Time
-
- - centralized log and metric analysis with Elasticsearch
- - raft
- - add/remove nodes
- - docker secrets
- - upgrade grafana
- - This blog!
