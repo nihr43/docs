@@ -1,6 +1,6 @@
 # k3s on Alpine Linux
 
-I run `k3s` on Alpine Linux, on three small supermicro servers.  Heres how I do it.
+I run `k3s` on Alpine Linux, on bare metal.  Heres how I do it.
 
 ---
 
@@ -136,7 +136,7 @@ mirrors:
       - "http://10.0.0.57:5000"
 ```
 
-As far as I can remember, thats everything I've done to get k3s to run on alpine.  Even using k8s bundled as k3s, there are still a lot of pieces to manage in a fully HA setup like this.  I've put a lot of time into developing, testing, and perfecting supporting roles like `haproxy`, `keepalived`, `alpine_common`, `physical_common`, and of course a rolling upgrade play, so I can manage all this as "a handful of services" rather than 30-40 containers.
+As far as I can remember, thats everything I've done to get k3s to run on alpine.  Even using k8s bundled as k3s, there are still a lot of pieces to manage in a fully HA setup like this.  I've put a lot of time into developing, testing, and perfecting supporting roles, automated installs, and of course automated rolling upgrades, allowing me to manage `n` servers without much overhead.
 
 ```
 72182231f55b [~]# kubectl get nodes
