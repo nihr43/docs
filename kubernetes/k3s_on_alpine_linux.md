@@ -1,10 +1,17 @@
 # k3s on Alpine Linux
 
-I run `k3s` on Alpine Linux, on bare metal.  Heres how I do it.
+I run `k3s` on Alpine Linux, on bare metal.  Here are some notes on building such an environment.
 
 ---
 
-First off, I use `lxd`, `terraform`, and `ansible` for stateful applications like minio, etcd, and my docker registries.  Though you can bootstrap `etcd` and `registry` inside of kubernetes itself, I like managing these core services externally to keep things simple.
+First off, there are some prerequisites to building a kubernetes cluster.  They are:
+
+- storage (preferably object sotrage)
+- docker registry
+- etcd cluster
+- supporting hardware and config management
+
+A production setup will require high availability of the registry and of etcd, so we need repeatable methods to build, rebuild, and upgrade these core services.  I use `lxd`, `terraform`, and `ansible` for stateful infrastructure.  Though you can bootstrap `etcd` and `registry` inside of kubernetes itself, managing these core services externally keeps things simple.
 
 Here are the relevant services running in lxd:
 
@@ -27,6 +34,11 @@ Here are the relevant services running in lxd:
 |                         |         | 10.0.0.228 (eth0) |      |            |           |              |
 +-------------------------+---------+-------------------+------+------------+-----------+--------------+
 | haproxy-etcd-1          | RUNNING | 10.0.0.126 (eth0) |      | PERSISTENT | 0         | 72182231f55b |
++-------------------------+---------+-------------------+------+------------+-----------+--------------+
+| haproxy-lxd-0           | RUNNING | 10.0.0.59 (eth0)  |      | PERSISTENT | 0         | 57c9fae30ca2 |
+|                         |         | 10.0.0.202 (eth0) |      |            |           |              |
++-------------------------+---------+-------------------+------+------------+-----------+--------------+
+| haproxy-lxd-1           | RUNNING | 10.0.0.125 (eth0) |      | PERSISTENT | 0         | 72182231f55b |
 +-------------------------+---------+-------------------+------+------------+-----------+--------------+
 | minio-prod-0            | RUNNING | 10.0.0.117 (eth0) |      | PERSISTENT | 0         | a78abd2afeef |
 +-------------------------+---------+-------------------+------+------------+-----------+--------------+
@@ -58,7 +70,7 @@ backend nodes
 
 - `minio-prod`: core data store for many services.  Using `MINIO_STORAGE_CLASS_STANDARD=EC:3` and overprovisioning 6 instances on 3 physical nodes, I'm safe to reboot/rebuild any one server or any two containers.  minio doesn't support odd numbered cluster sizes for some reason.  These are not load balanced; just a single vip via keepalived for maximum transfer throughput.  Tuning haproxy for object storage can be tricky.
 
-The physical nodes only run lxd, k3s, and some standard daemons like sshd, filebeat, haveged.  All other services are contained.
+The physical nodes only run lxd, k3s, and some standard daemons like sshd, filebeat, haveged.  All other services are contained.  Containers will occasionally require kernel parameters be set.  This is done by a play in my "physical" playbook.
 
 tcp load balancers for the lxd management api are themselves running in lxd.
 
