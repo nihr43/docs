@@ -1,12 +1,12 @@
 # k3s on Alpine Linux
 
-I run `k3s` on Alpine Linux, on bare metal.  Here are some notes on building such an environment.
+I run `k3s` on Alpine Linux, on bare metal.  Here are some notes on building the environment.
 
 ---
 
 First off, there are some prerequisites to building a kubernetes cluster.  They are:
 
-- storage (preferably object sotrage)
+- storage (preferably object storage)
 - docker registry
 - etcd cluster
 - supporting hardware and config management
@@ -55,28 +55,32 @@ Here are the relevant services running in lxd:
 +-------------------------+---------+-------------------+------+------------+-----------+--------------+
 ```
 
-- `docker-registry`: two instances backed by minio for storage, using keepalived for floating ip.  Effectively stateless.
-- `etcd`: core data store for k3s.
-- `haproxy-etcd`: tcp mode haproxy instances for etcd.  Using keepalived for floating ip.  Backends dynamically configured through ansible:
+For the docker-registry nodes, I am using the `s3` storage backend, making the instances effectively stateless:
 
 ```
-backend nodes
-    mode {{ mode }}
-    balance {{ balance }}
-    {% for host in groups[proxied_group] %}
-    server {{ host }} {{ host }}:{{ back_bind_port }} check init-addr none resolvers dns inter 1000
-    {% endfor %}
+storage:
+    cache:
+        layerinfo: inmemory
+    s3:
+        accesskey: {{ lookup ('env', 'AWS_ACCESS_KEY') }}
+        secretkey: {{ lookup ('env', 'AWS_SECRET_KEY') }}
+        region: us-east-1
+        regionendpoint: http://10.0.0.55:9000
+        bucket: docker-registry
+        encrypt: false
+        secure: false
+        v4auth: true
+        chunksize: 5242880
+        rootdirectory: /
 ```
 
-- `minio-prod`: core data store for many services.  Using `MINIO_STORAGE_CLASS_STANDARD=EC:3` and overprovisioning 6 instances on 3 physical nodes, I'm safe to reboot/rebuild any one server or any two containers.  minio doesn't support odd numbered cluster sizes for some reason.  These are not load balanced; just a single vip via keepalived for maximum transfer throughput.  Tuning haproxy for object storage can be tricky.
+Basic HA for the docker-registry nodes is handled with keepalived.
 
-The physical nodes only run lxd, k3s, and some standard daemons like sshd, filebeat, haveged.  All other services are contained.  Containers will occasionally require kernel parameters be set.  This is done by a play in my "physical" playbook.
-
-tcp load balancers for the lxd management api are themselves running in lxd.
+The physical nodes only run lxd, k3s, and some standard daemons like sshd, logging, metrics, haveged.  All other services are contained.  tcp load balancers for the lxd management api are themselves running in lxd, so I can shut down physical nodes and still reach the lxd api.
 
 The servers themselves are 1u half-rack supermicro servers each with non-ecc ram and mdadm raid0 over used ebay ssds.  The approach here is to use the cheapest viable hardware and address reliability in software.
 
-With this setup, I can freely upgrade and reboot physical servers without affecting service.  (for the most part.  active tcp connections to minio, for instance, will be dropped when the vip flips.)
+With this setup, I can freely upgrade and reboot physical servers without affecting service.  (for the most part.  active tcp connections to minio, for instance, will be dropped when the floating ip moves)  Any individual component can be freely deleted and reprovisioned in a few commands.
 
 ---
 
@@ -129,7 +133,7 @@ Heres my current ansible `roles/k3s_master/tasks/main.yml`:
    state: started
 ```
 
-`k3s` is in the `edge/testing` repo by the way.  I manage repos in a different role.
+`k3s` is in the `edge/testing` repo by the way.
 
 Heres `conf.d/k3s`.  Yes, I need to get around to setting up tls for my etcd cluster.
 
@@ -139,7 +143,7 @@ K3S_OPTS="--datastore-endpoint http://{{ k3s_etcd }}:2379 --token {{ lookup ('en
 
 As I only have three k3s nodes, all nodes are masters.
 
-`/etc/rancher/k3s/registries.yaml`:
+To configure k3s to use an internal registry; `/etc/rancher/k3s/registries.yaml`:
 
 ```
 mirrors:
