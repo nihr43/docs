@@ -1,8 +1,8 @@
-## HAproxy Service Discovery and Docker Swarm
+# HAproxy Service Discovery and Docker Swarm
 
 Name-based service discovery using HAproxy and docker swarm.
 
-### docker
+## docker
 
 Enables reproducable, isolated web application development and deployment.
 
@@ -36,7 +36,7 @@ docker build .
 docker run -p 8000:80 caf8cf7fac42
 ```
 
-### docker compose
+## docker compose
 
 Automates the complicated "-p 8000:80 caf8cf7fac42" portion of the generic docker command, and lets us define runtime "policy" such as port numbers, logging options, etc.
 
@@ -63,7 +63,7 @@ docker-compose -f ./common.yml build
 docker-compose -f ./common.yml -f ./dev.yml up
 ```
 
-### docker swarm
+## docker swarm
 
 Enables automated deployment and management of many containers across a cluster of many "dumb" docker nodes.  These nodes are near-identical clones, and have absolute minimal configuration.  Swarm effectively abstracts "applications" from underlying "servers".
 
@@ -97,7 +97,7 @@ docker node demote 9a29-swarm
 docker node rm 9a29-swarm
 ```
 
-### Mapping Application urls to Ports with HAproxy
+## Mapping Application urls to Ports with HAproxy
 
 HAproxy can inspect incoming traffic for the requested URL, and forward traffic accordingly:
 
