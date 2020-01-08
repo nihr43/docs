@@ -1,4 +1,4 @@
 .PHONY: lint
 
 lint:
-	find . -name "*.md" | xargs mdl
+	find . -name "*.md" | xargs mdl -r ~MD013
