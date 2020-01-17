@@ -1,14 +1,18 @@
 # Stateful System Containers with lxd
 
-~lxd provides a substrate on which to deploy and run containers using traditional devops tools.~
+_lxd provides a substrate on which to deploy and run containers using traditional devops tools._
 
 ---
 
-I run lxd on bare metal rather than VMs for stateful services and traditional network functions.  System containers provide the high efficiency of OS virtualization while maintaining compatability with traditional configuration management tools.  For my needs, this approach is more appropriate than kubernetes for various pre-'cloud-native computing' services such as dhcpd, jenkins, or traditional relational databases.  I also run k8s support infrastructure using lxd, namely etcd and docker-registry.  This post is not a guide on how to install and setup lxd, but rather a collection of notes on integration and automation of lxd overall.
+This post is not a guide on how to install and setup lxd, but rather a collection of notes on integration and automation of lxd overall.
+
+I run lxd containers rather than VMs for stateful services and traditional network functions.  System containers provide the O(n) efficiency of OS virtualization while maintaining compatability with traditional configuration management tools (they look and act like VMs).  For my needs, this approach is more appropriate than kubernetes for various non-cloud-native services such as dhcpd, traditional relational databases, or a monolithic app like jenkins.  Concerning network functions, system containers are a good choice for running HAproxy groups with IP failover via keepalived - because unlike docker, we get a regular IP address in the containers.
+
+Are containers as safe as hardware virtualization?  Probably not.  Post-spectre, the lines here are blurred.  I highly value efficiency, and the potential tradeoff of security for efficiency is worth it to me.  What I can do with this system is weekly rolling kernel upgrades of the physical hosts with no downtime.
 
 ---
 
-~implementation~
+_implementation_
 
 Lets look at how to deploy a highly available docker registry on top of lxd.  We will use ansible, terraform, and the [lxd terraform provider](https://github.com/sl1pm4t/terraform-provider-lxd).
 
@@ -43,7 +47,6 @@ current_node="$(lxc info "$instance" \
                   | awk '/Location: /{print $NF}')"
 target_node="$(lxc cluster ls --format json \
                  | jq -r .[].server_name \
-                 | shuf -n2 \
                  | shuf -n1)"
 
 # lxd crashes if you attempt a no-op move
@@ -57,28 +60,31 @@ target_node="$(lxc cluster ls --format json \
 }
 
 lxc exec "$instance" -- sh -c '
-  cat > /etc/apk/repositories << EOF
+set -e
+cat > /etc/apk/repositories << EOF
 http://10.0.0.55:9000/alpine/v3.11/main
 http://10.0.0.55:9000/alpine/v3.11/community
 http://10.0.0.55:9000/alpine/edge/testing
 EOF
-  apk update
-  apk upgrade --no-cache
-  apk add openssh python3 --no-cache
-  passwd -u root
-  sed -i "s/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-password/g" /etc/ssh/sshd_config
-  mkdir /root/.ssh
-  wget https://github.com/nihr43.keys -O /root/.ssh/authorized_keys
-  rc-update add sshd
-  rc-service sshd start
-'
+apk update
+apk upgrade --no-cache
+apk add openssh python3 --no-cache
+passwd -u root
+sed -i "s/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-password/g" /etc/ssh/sshd_config
+mkdir /root/.ssh
+wget https://github.com/nihr43.keys -O /root/.ssh/authorized_keys
+rc-update add sshd
+rc-service sshd start
+' || {
+  exit 1
+}
 
 ansible-playbook ./main.yml --limit="$instance"
 ```
 
 The first half of this is a work around the fact that the lxd module does not evenly balance new containers across the cluster.  Then we use `lxc exec` to run minimal setup required to run ansible against the node, and then finally we run ansible to apply a role.  This requires the node already exists in the ansible inventory.
 
-Now for the docker-registry specification:
+Now for the docker-registry terrform spec:
 
 ```
 resource "lxd_container" "docker-registry" {
@@ -100,3 +106,11 @@ resource "lxd_cached_image" "alpine" {
   aliases = ["alpine/stable"]
 }
 ```
+
+---
+
+_challenges_
+
+lxd's dqlite raft implementation is quite unstable at the moment in comparison to my experiences with etcd, swarm, cockroachdb.  There are a number of open issues in github right now related to database errors and quorum loss.
+
+Kernel parameters required by contained applications must be managed on the physical host, requiring coordination between whoever is running the cluster and whoever is running the applications.
