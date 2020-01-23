@@ -8,7 +8,7 @@ This post is not a guide on how to install and setup lxd, but rather a collectio
 
 I run lxd containers rather than VMs for stateful services and traditional network functions.  System containers provide the O(n) efficiency of OS virtualization while maintaining compatability with traditional configuration management tools (they look and act like VMs).  For my needs, this approach is more appropriate than kubernetes for various non-cloud-native services such as dhcpd, traditional relational databases, or a monolithic app like jenkins.  Concerning network functions, system containers are a good choice for running HAproxy groups with IP failover via keepalived - because unlike docker, we get a regular IP address in the containers.
 
-Are containers as safe as hardware virtualization?  Probably not.  Post-spectre, the lines here are blurred.  I highly value efficiency, and the potential tradeoff of security for efficiency is worth it to me.  What I can do with this system is weekly rolling kernel upgrades of the physical hosts with no downtime.
+Are containers as safe as hardware virtualization?  Probably not.  Though post-spectre, the lines here are blurred.  In this system, I am seeking maximum efficiency and hardware utilization, and have set a hard design constraint on enabling weekly rolling kernel upgrades of the physical hosts.
 
 ---
 
@@ -33,7 +33,7 @@ provider "lxd" {
 }
 ```
 
-`10.0.0.100` is the address of a tcp load balancer, ensuring terraform will still function if a node is missing.
+`10.0.0.100` is the address of a tcp load balancer, ensuring terraform will still function if a node is missing.  As for the password, it would be better to pull this out of an environment variable.
 
 After installing the plugin and running `terraform init`, we can start acting on the cluster.
 
