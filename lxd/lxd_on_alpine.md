@@ -1,6 +1,8 @@
 # Stateful System Containers with lxd
 
-_lxd provides a substrate on which to deploy and run containers using traditional devops tools._
+_jan 2020_
+
+lxd provides a substrate on which to deploy and run containers using traditional devops tools
 
 ---
 

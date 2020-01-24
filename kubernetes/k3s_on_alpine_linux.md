@@ -1,5 +1,7 @@
 # k3s on Alpine Linux
 
+_jan 2020_
+
 I run `k3s` on Alpine Linux, on bare metal.  Here are some notes on building the environment.
 
 ---
