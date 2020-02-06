@@ -1,6 +1,6 @@
 # bookmarks
 
-I consider the following to be impactful or otherwise outstanding references.
+I consider the following to be valuable references.
 
 - [Jails: Confining the Omnipotent Root](https://papers.freebsd.org/2000/phk-jails.files/sane2000-jail.pdf)
 - [Relections on trusting trust](https://www.archive.ece.cmu.edu/~ganger/712.fall02/papers/p761-thompson.pdf)
