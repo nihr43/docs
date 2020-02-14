@@ -113,6 +113,6 @@ resource "lxd_cached_image" "alpine" {
 
 _challenges_
 
-lxd's dqlite raft implementation is quite unstable at the moment in comparison to my experiences with etcd, swarm, cockroachdb.  There are a number of open issues in github right now related to database errors and quorum loss.
+lxd's dqlite raft implementation is quite unstable at the moment in comparison to my experiences with etcd, swarm, cockroachdb.  There are a number of open issues in github right now related to database errors and quorum loss.  _update: post v3.20, I've had much better experiences_
 
 Kernel parameters required by contained applications must be managed on the physical host, requiring coordination between whoever is running the cluster and whoever is running the applications.
