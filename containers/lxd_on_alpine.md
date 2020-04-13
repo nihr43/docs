@@ -8,9 +8,9 @@ lxd provides a substrate on which to deploy and run containers using traditional
 
 This post is not a guide on how to install and setup lxd, but rather a collection of notes on integration and automation of lxd overall.
 
-I run lxd containers rather than VMs for stateful services and traditional network functions.  System containers provide the O(n) efficiency of OS virtualization while maintaining compatability with traditional configuration management tools (they look and act like VMs).  For my needs, this approach is more appropriate than kubernetes for various non-cloud-native services such as dhcpd, traditional relational databases, or a monolithic app like jenkins.  Concerning network functions, system containers are a good choice for running HAproxy groups with IP failover via keepalived - because unlike docker, we get a regular IP address in the containers.
+I run lxd containers rather than VMs for stateful services and traditional network functions.  System containers provide the O(1) efficiency of OS virtualization while maintaining compatability with traditional configuration management tools (they look and act like VMs).  For my needs, this approach is more appropriate than kubernetes for various non-cloud-native services such as dhcpd, traditional relational databases, or a monolithic app like jenkins.  Concerning network functions, system containers are a good choice for running HAproxy groups or name servers with virtual IPs.  They are also a good choice for running storage services, database, or kubernetes support services such as `etcd`.
 
-Are containers as safe as hardware virtualization?  Probably not.  Though post-spectre, the lines here are blurred.  In this system, I am seeking maximum efficiency and hardware utilization, and have set a hard design constraint on enabling weekly rolling kernel upgrades of the physical hosts.
+Are containers as safe as hardware virtualization?  Probably not.  Though post-spectre, the lines here are blurred.  No, I wouldn't host a public cloud on linux containers, but personally, these concerns are dwarfed by my fears of misconfiguration or negligence.  In this environment, the efficiency / security tradeoff is acceptable.
 
 ---
 
@@ -26,16 +26,16 @@ provider "lxd" {
   accept_remote_certificate    = true
 
   lxd_remote {
-    name     = "10.0.0.100"
+    name     = "lxd.localnet"
     scheme   = "https"
-    address  = "10.0.0.100"
-    password = "ce9dbb78703fb47147a65796b30c74b8"
+    address  = "lxd.localnet"
+    password = var.LXD_PASS
     default  = true
   }
 }
 ```
 
-`10.0.0.100` is the address of a tcp load balancer, ensuring terraform will still function if a node is missing.  As for the password, it would be better to pull this out of an environment variable.
+`lxd.localnet` is a round-robin DNS record across the lxd nodes, ensuring terraform will still function if a node is missing.  `var.LXD_PASS` is the admin password for the cluster, pulled from the shell environment.
 
 After installing the plugin and running `terraform init`, we can start acting on the cluster.
 
@@ -64,9 +64,9 @@ target_node="$(lxc cluster ls --format json \
 lxc exec "$instance" -- sh -c '
 set -e
 cat > /etc/apk/repositories << EOF
-http://10.0.0.55:9000/alpine/v3.11/main
-http://10.0.0.55:9000/alpine/v3.11/community
-http://10.0.0.55:9000/alpine/edge/testing
+http://minio.localnet:9000/alpine/v3.11/main
+http://minio.localnet:9000/alpine/v3.11/community
+http://minio.localnet:9000/alpine/edge/testing
 EOF
 apk update
 apk upgrade --no-cache
@@ -113,6 +113,8 @@ resource "lxd_cached_image" "alpine" {
 
 _challenges_
 
-lxd's dqlite raft implementation is quite unstable at the moment in comparison to my experiences with etcd, swarm, cockroachdb.  There are a number of open issues in github right now related to database errors and quorum loss.  _update: post v3.20, I've had much better experiences_
+lxd's dqlite raft implementation is quite unstable at the moment in comparison to my experiences with etcd, swarm, or cockroachdb.  There are a number of open issues in github right now related to database errors and quorum loss.  _update: post v3.20, I've had much better experiences_
 
 Kernel parameters required by contained applications must be managed on the physical host, requiring coordination between whoever is running the cluster and whoever is running the applications.
+
+As we are running all other services on top of lxd, is is very important not to create any dependency loops in the case of a disaster.  For example - I run a local mirror of the alpine repos in a minio cluster that runs in lxd containers.  For a while I had the lxd hosts source that local mirror.  This is fine as long as the cluster maintains a quorum, but if the quorum is lost and the mirror can't be booted, then the lxd hosts don't have available repos anymore and things start to fall apart.  Lesson learned: it is wise to use seperate processes for package management on host and virtual infrastructure.
